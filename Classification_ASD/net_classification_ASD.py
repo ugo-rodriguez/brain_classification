@@ -192,33 +192,23 @@ class IcosahedronConv2d(nn.Module):
 
  
     def forward(self,x):
-        #print('forward')
         batch_size,nbr_cam,nbr_features = x.size()
-        #print(x.shape)
         x = x.permute(0,2,1)
-        #print(x.shape)
         size_reshape = [batch_size*nbr_features,nbr_cam]
         x = x.contiguous().view(size_reshape)
-        #print(x.shape)
 
         x = torch.mm(x,self.mat_neighbors)
-        #print(x.shape)
         size_reshape2 = [batch_size,nbr_cam,nbr_features,3,3]
         x = x.contiguous().view(size_reshape2)
-        #print(x.shape)
         x = x.permute(0,2,1,3,4)
-        #print(x.shape)
 
         size_reshape3 = [batch_size*nbr_cam,nbr_features,3,3]
         x = x.contiguous().view(size_reshape3)
-        #print(x.shape)
 
         output = self.module(x)
-        #print(output.shape)
         output_channels = self.module.out_channels
         size_initial = [batch_size,nbr_cam,output_channels]
         output = output.contiguous().view(size_initial)
-        #print(output.shape)
 
         return output
 
@@ -255,10 +245,9 @@ class BrainNet(pl.LightningModule):
         for coords_cam in self.ico_sphere_verts.tolist():
             camera_position = torch.FloatTensor([coords_cam])
             R_current = look_at_rotation(camera_position)
-            # check if camera coords vector and up vector for R are collinear
             if torch.equal(torch.cross(camera_position,torch.tensor([[0.,1.,0.]])),torch.tensor([[0., 0., 0.]])): 
                R_current = look_at_rotation(camera_position, up = torch.tensor([[0.0, 0.0, 1.0]]),)    
-            T_current = -torch.bmm(R_current.transpose(1, 2), camera_position[:,:,None])[:, :, 0]   # (1, 3)
+            T_current = -torch.bmm(R_current.transpose(1, 2), camera_position[:,:,None])[:, :, 0]   
 
             R.append(R_current)
             T.append(T_current)
@@ -266,9 +255,7 @@ class BrainNet(pl.LightningModule):
         self.T=torch.cat(T)
         self.nbr_cam = len(self.R)
 
-        efficient_net = models.resnet18()#pretrained=True
-        #efficient_net = models.efficientnet_b0()
-        #efficient_net.features[0][0] = nn.Conv2d(self.nbr_features, 32, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+        efficient_net = models.resnet18()
         efficient_net.conv1 = nn.Conv2d(self.nbr_features, 64, kernel_size=(7, 7), stride=(2, 2), padding=(3, 3), bias=False)
         efficient_net.fc = Identity()
 
@@ -279,9 +266,9 @@ class BrainNet(pl.LightningModule):
 
         output_size = self.TimeDistributed.module.inplanes
 
-        self.WV = nn.Linear(output_size, 256) #512,256
+        self.WV = nn.Linear(output_size, 256) 
 
-        self.Attention = SelfAttention(output_size, 128) #512,128
+        self.Attention = SelfAttention(output_size, 128) 
         self.Classification = nn.Linear(256, 2)
 
         self.Sigmoid = nn.Sigmoid()
@@ -356,18 +343,13 @@ class BrainNet(pl.LightningModule):
         # fig.show()
 
         PF = []
-        #for i in range(2):  # multiple views of the object
         for i in range(self.nbr_cam): 
 
             pix_to_face = self.GetView(meshes,i)
-            #L_test = [(False in (pix_to_face[0] == pix_to_face[kk])) for kk in range(1,10)] #Just for me and use PF
-            #print(L_test)
-            #print(pix_to_face.shape, torch.max(pix_to_face))
             PF.append(pix_to_face.unsqueeze(dim=1))
 
         PF = torch.cat(PF, dim=1)
-        #torch.save(PF,'PF.pt')
-        #print(PF.shape)
+
         l_features = []
         for index in range(FF.shape[-1]):
             l_features.append(torch.take(FF[:,:,index],PF)*(PF >= 0)) # take each feature
@@ -400,10 +382,6 @@ class BrainNet(pl.LightningModule):
         Y = Y.squeeze(dim=1)
 
         x = self((V, F, VF, FF))
-
-        #Last loss : for BCE lines
-        # x = self.Sigmoid(x).squeeze(dim=1)
-        #loss = self.loss(x,Y.to(torch.float32)) 
 
         loss = self.loss_val(x,Y) 
 
@@ -440,24 +418,8 @@ class BrainNet(pl.LightningModule):
             y_true += ele[1].tolist()
         target_names = ['no ASD','ASD']
 
-        indexASD_good_pred = []
-        for i in range(len(y_pred)):
-            if (y_pred[i][0] == y_true[i]) and (y_true[i] == 1):
-                indexASD_good_pred.append(i)
-        print(indexASD_good_pred)
-
         self.y_pred = y_pred
         self.y_true = y_true
-
-        cf_matrix = confusion_matrix(self.y_true, self.y_pred)
-        cf_matrix = cf_matrix/np.max(cf_matrix)
-
-        print(target_names)
-        print(cf_matrix)
-        fig = px.imshow(cf_matrix,labels=dict(x="Predicted condition", y="Actual condition"),x=target_names,y=target_names)
-        fig.update_xaxes(side="top")
-        fig.write_image("images/confusion_matrix.png")
-        fig.show()
 
         print(self.y_pred)
         print(self.y_true)
@@ -538,15 +500,11 @@ class BrainIcoNet(pl.LightningModule):
         self.Classification = nn.Linear(256, 2)
 
         self.Sigmoid = nn.Sigmoid()
-        #self.loss = nn.CrossEntropyLoss()
         self.loss_train = nn.CrossEntropyLoss()
         self.loss_val = nn.CrossEntropyLoss(weight=self.weights[1])
         self.loss_test = nn.CrossEntropyLoss(weight=self.weights[2])
         self.train_accuracy = torchmetrics.Accuracy('binary',num_classes=2,average='weighted')
         self.val_accuracy = torchmetrics.Accuracy('binary',num_classes=2,average='weighted')
-        #self.train_accuracy = torchmetrics.Accuracy()
-        #self.val_accuracy = torchmetrics.Accuracy()
-
 
 
 
@@ -561,7 +519,6 @@ class BrainIcoNet(pl.LightningModule):
             faces_per_pixel=1, 
             max_faces_per_bin=100000
         )
-        # We can add a point light in front of the object. 
 
         lights = AmbientLights()
         rasterizer = MeshRasterizer(
@@ -615,7 +572,6 @@ class BrainIcoNet(pl.LightningModule):
         # fig.show()
 
         PF = []
-        #for i in range(2):  # multiple views of the object
         for i in range(self.nbr_cam): 
             pix_to_face = self.GetView(meshes,i)
             PF.append(pix_to_face.unsqueeze(dim=1))
@@ -655,10 +611,6 @@ class BrainIcoNet(pl.LightningModule):
 
         x = self((V, F, VF, FF)) 
 
-        #Last loss : for BCE lines
-        # x = self.Sigmoid(x).squeeze(dim=1)
-        #loss = self.loss(x,Y.to(torch.float32)) 
-
         loss = self.loss_val(x,Y) 
 
         self.log('val_loss', loss, batch_size=self.batch_size)
@@ -694,17 +646,8 @@ class BrainIcoNet(pl.LightningModule):
             y_true += ele[1].tolist()
         target_names = ['no ASD','ASD']
 
-        cf_matrix = confusion_matrix(y_true, y_pred)
-        cf_matrix = cf_matrix/np.max(cf_matrix)
-
-        fig = px.imshow(cf_matrix,labels=dict(x="Predicted condition", y="Actual condition"),x=target_names,y=target_names)
-        fig.update_xaxes(side="top")
-        fig.write_image("images/confusion_matrix_justIcoConvAvgPooling.png")
-        fig.show()
-
         self.y_pred =y_pred
         self.y_true =y_true
-
 
         print(self.y_pred)
         print(self.y_true)
@@ -734,223 +677,223 @@ class BrainIcoNet(pl.LightningModule):
 
 
 
-class BrainIcoAttentionNet(pl.LightningModule):
-    def __init__(self,nbr_features,dropout_lvl,image_size,noise_lvl,ico_lvl,batch_size, radius=2.0, lr=1e-4):
-        super().__init__()
+# class BrainIcoAttentionNet(pl.LightningModule):
+#     def __init__(self,nbr_features,dropout_lvl,image_size,noise_lvl,ico_lvl,batch_size, radius=2.0, lr=1e-4):
+#         super().__init__()
 
-        self.save_hyperparameters()
+#         self.save_hyperparameters()
 
-        self.nbr_features = nbr_features
-        self.dropout_lvl = dropout_lvl
-        self.image_size = image_size
-        self.noise_lvl = noise_lvl 
-        self.batch_size = batch_size
-        self.radius = radius
+#         self.nbr_features = nbr_features
+#         self.dropout_lvl = dropout_lvl
+#         self.image_size = image_size
+#         self.noise_lvl = noise_lvl 
+#         self.batch_size = batch_size
+#         self.radius = radius
 
-        ico_sphere = utils.CreateIcosahedron(self.radius, ico_lvl)
-        ico_sphere_verts, ico_sphere_faces, self.ico_sphere_edges = utils.PolyDataToTensors(ico_sphere)
-        self.ico_sphere_verts = ico_sphere_verts
-        self.ico_sphere_edges = np.array(self.ico_sphere_edges)
-        R=[]
-        T=[]
-        for coords_cam in self.ico_sphere_verts.tolist():
-            camera_position = torch.FloatTensor([coords_cam])
-            R_current = look_at_rotation(camera_position)
-            # check if camera coords vector and up vector for R are collinear
-            #if torch.equal(torch.cross(camera_position,torch.tensor([[0.,1.,0.]])),torch.tensor([[0., 0., 0.]])): 
-            #    R = look_at_rotation(camera_position, up = torch.tensor([[0.0, 0.0, 1.0]]),)    
-            T_current = -torch.bmm(R_current.transpose(1, 2), camera_position[:,:,None])[:, :, 0]   # (1, 3)
+#         ico_sphere = utils.CreateIcosahedron(self.radius, ico_lvl)
+#         ico_sphere_verts, ico_sphere_faces, self.ico_sphere_edges = utils.PolyDataToTensors(ico_sphere)
+#         self.ico_sphere_verts = ico_sphere_verts
+#         self.ico_sphere_edges = np.array(self.ico_sphere_edges)
+#         R=[]
+#         T=[]
+#         for coords_cam in self.ico_sphere_verts.tolist():
+#             camera_position = torch.FloatTensor([coords_cam])
+#             R_current = look_at_rotation(camera_position)
+#             # check if camera coords vector and up vector for R are collinear
+#             #if torch.equal(torch.cross(camera_position,torch.tensor([[0.,1.,0.]])),torch.tensor([[0., 0., 0.]])): 
+#             #    R = look_at_rotation(camera_position, up = torch.tensor([[0.0, 0.0, 1.0]]),)    
+#             T_current = -torch.bmm(R_current.transpose(1, 2), camera_position[:,:,None])[:, :, 0]   # (1, 3)
 
-            R.append(R_current)
-            T.append(T_current)
-        self.R=torch.cat(R)
-        self.T=torch.cat(T)
-        self.nbr_cam = len(self.R)
+#             R.append(R_current)
+#             T.append(T_current)
+#         self.R=torch.cat(R)
+#         self.T=torch.cat(T)
+#         self.nbr_cam = len(self.R)
 
-        efficient_net = models.resnet18()
-        #efficient_net = models.efficientnet_b0()
-        #efficient_net.features[0][0] = nn.Conv2d(self.nbr_features, 32, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
-        efficient_net.fc = Identity()
+#         efficient_net = models.resnet18()
+#         #efficient_net = models.efficientnet_b0()
+#         #efficient_net.features[0][0] = nn.Conv2d(self.nbr_features, 32, kernel_size=(3, 3), stride=(2, 2), padding=(1, 1), bias=False)
+#         efficient_net.fc = Identity()
 
-        self.drop = nn.Dropout(p=self.dropout_lvl)
+#         self.drop = nn.Dropout(p=self.dropout_lvl)
 
-        self.noise = GaussianNoise(mean=0.0, std=noise_lvl)
-        self.TimeDistributed = TimeDistributed(efficient_net)
+#         self.noise = GaussianNoise(mean=0.0, std=noise_lvl)
+#         self.TimeDistributed = TimeDistributed(efficient_net)
 
-        conv2d = nn.Conv2d(512, 256, kernel_size=(3,3),stride=2,padding=0) 
-        self.IcosahedronConv2d = IcosahedronConv2d(conv2d,self.ico_sphere_verts,self.ico_sphere_edges)
+#         conv2d = nn.Conv2d(512, 256, kernel_size=(3,3),stride=2,padding=0) 
+#         self.IcosahedronConv2d = IcosahedronConv2d(conv2d,self.ico_sphere_verts,self.ico_sphere_edges)
 
-        self.Attention = SelfAttention(512, 128)
-        self.Classification = nn.Linear(256, 2)
+#         self.Attention = SelfAttention(512, 128)
+#         self.Classification = nn.Linear(256, 2)
 
-        self.Sigmoid = nn.Sigmoid()
-        self.loss = nn.CrossEntropyLoss()
-        self.train_accuracy = torchmetrics.Accuracy()
-        self.val_accuracy = torchmetrics.Accuracy()
-
-
+#         self.Sigmoid = nn.Sigmoid()
+#         self.loss = nn.CrossEntropyLoss()
+#         self.train_accuracy = torchmetrics.Accuracy()
+#         self.val_accuracy = torchmetrics.Accuracy()
 
 
-        # Initialize a perspective camera.
-        self.cameras = FoVPerspectiveCameras()
+
+
+#         # Initialize a perspective camera.
+#         self.cameras = FoVPerspectiveCameras()
 
         
-        # We will also create a Phong renderer. This is simpler and only needs to render one face per pixel.
-        raster_settings = RasterizationSettings(
-            image_size=self.image_size, 
-            blur_radius=0, 
-            faces_per_pixel=1, 
-            max_faces_per_bin=100000
-        )
-        # We can add a point light in front of the object. 
+#         # We will also create a Phong renderer. This is simpler and only needs to render one face per pixel.
+#         raster_settings = RasterizationSettings(
+#             image_size=self.image_size, 
+#             blur_radius=0, 
+#             faces_per_pixel=1, 
+#             max_faces_per_bin=100000
+#         )
+#         # We can add a point light in front of the object. 
 
-        lights = AmbientLights()
-        rasterizer = MeshRasterizer(
-                cameras=self.cameras, 
-                raster_settings=raster_settings
-            )
-        self.phong_renderer = MeshRendererWithFragments(
-            rasterizer=rasterizer,
-            shader=HardPhongShader(cameras=self.cameras, lights=lights)
-        )
+#         lights = AmbientLights()
+#         rasterizer = MeshRasterizer(
+#                 cameras=self.cameras, 
+#                 raster_settings=raster_settings
+#             )
+#         self.phong_renderer = MeshRendererWithFragments(
+#             rasterizer=rasterizer,
+#             shader=HardPhongShader(cameras=self.cameras, lights=lights)
+#         )
  
-    def forward(self, x):
+#     def forward(self, x):
 
-        V, F, VF, FF = x
+#         V, F, VF, FF = x
 
-        V = V.to(self.device)
-        F = F.to(self.device)
-        VF = VF.to(self.device)
-        FF = FF.to(self.device)
+#         V = V.to(self.device)
+#         F = F.to(self.device)
+#         VF = VF.to(self.device)
+#         FF = FF.to(self.device)
 
-        x, PF = self.render(V,F,VF,FF)
+#         x, PF = self.render(V,F,VF,FF)
 
-        x = self.noise(x)
-        query = self.TimeDistributed(x)
-        values = self.IcosahedronConv2d(query)
+#         x = self.noise(x)
+#         query = self.TimeDistributed(x)
+#         values = self.IcosahedronConv2d(query)
 
-        x_a, w_a = self.Attention(query, values)
-        x_a = self.drop(x_a)
-        x = self.Classification(x_a)
+#         x_a, w_a = self.Attention(query, values)
+#         x_a = self.drop(x_a)
+#         x = self.Classification(x_a)
 
-        return x
+#         return x
 
-    def configure_optimizers(self):
-        optimizer = optim.AdamW(self.parameters(), lr=self.hparams.lr)
-        return optimizer
+#     def configure_optimizers(self):
+#         optimizer = optim.AdamW(self.parameters(), lr=self.hparams.lr)
+#         return optimizer
     
-    def render(self,V,F,VF,FF):
+#     def render(self,V,F,VF,FF):
 
-        textures = TexturesVertex(verts_features=VF)
-        meshes = Meshes(
-            verts=V,   
-            faces=F, 
-            textures=textures
-        )
+#         textures = TexturesVertex(verts_features=VF)
+#         meshes = Meshes(
+#             verts=V,   
+#             faces=F, 
+#             textures=textures
+#         )
 
-        # To plot the sphere
-        # fig = plot_scene({"subplot1":{"meshes":meshes}})
-        # fig.show()
+#         # To plot the sphere
+#         # fig = plot_scene({"subplot1":{"meshes":meshes}})
+#         # fig.show()
 
-        PF = []
-        #for i in range(2):  # multiple views of the object
-        for i in range(self.nbr_cam): 
+#         PF = []
+#         #for i in range(2):  # multiple views of the object
+#         for i in range(self.nbr_cam): 
 
-            pix_to_face = self.GetView(meshes,i)
-            PF.append(pix_to_face.unsqueeze(dim=1))
+#             pix_to_face = self.GetView(meshes,i)
+#             PF.append(pix_to_face.unsqueeze(dim=1))
 
-        PF = torch.cat(PF, dim=1)
-        l_features = []
-        for index in range(FF.shape[-1]):
-            l_features.append(torch.take(FF[:,:,index],PF)*(PF >= 0)) # take each feature
-        x = torch.cat(l_features,dim=2)
+#         PF = torch.cat(PF, dim=1)
+#         l_features = []
+#         for index in range(FF.shape[-1]):
+#             l_features.append(torch.take(FF[:,:,index],PF)*(PF >= 0)) # take each feature
+#         x = torch.cat(l_features,dim=2)
 
-        return x, PF
+#         return x, PF
 
-    def training_step(self, train_batch, batch_idx):
+#     def training_step(self, train_batch, batch_idx):
 
-        V, F, VF, FF, Y = train_batch
+#         V, F, VF, FF, Y = train_batch
 
-        Y = Y.squeeze(dim=1)
+#         Y = Y.squeeze(dim=1)
 
-        x = self((V, F, VF, FF)) 
+#         x = self((V, F, VF, FF)) 
 
-        loss = self.loss(x,Y) 
+#         loss = self.loss(x,Y) 
 
-        self.log('train_loss', loss, batch_size=self.batch_size)
+#         self.log('train_loss', loss, batch_size=self.batch_size)
 
-        predictions = torch.argmax(x, dim=1, keepdim=True)
-        self.train_accuracy(predictions.reshape(-1, 1), Y.reshape(-1, 1))
-        self.log("train_acc", self.train_accuracy, batch_size=self.batch_size)  
+#         predictions = torch.argmax(x, dim=1, keepdim=True)
+#         self.train_accuracy(predictions.reshape(-1, 1), Y.reshape(-1, 1))
+#         self.log("train_acc", self.train_accuracy, batch_size=self.batch_size)  
 
-        return loss
+#         return loss
 
-    def validation_step(self,val_batch,batch_idx):
+#     def validation_step(self,val_batch,batch_idx):
         
-        V, F, VF, FF, Y = val_batch
+#         V, F, VF, FF, Y = val_batch
 
-        Y = Y.squeeze(dim=1)
+#         Y = Y.squeeze(dim=1)
 
-        x = self((V, F, VF, FF)) 
+#         x = self((V, F, VF, FF)) 
 
-        #Last loss : for BCE lines
-        # x = self.Sigmoid(x).squeeze(dim=1)
-        #loss = self.loss(x,Y.to(torch.float32)) 
+#         #Last loss : for BCE lines
+#         # x = self.Sigmoid(x).squeeze(dim=1)
+#         #loss = self.loss(x,Y.to(torch.float32)) 
 
-        loss = self.loss(x,Y) 
+#         loss = self.loss(x,Y) 
 
-        self.log('val_loss', loss, batch_size=self.batch_size)
+#         self.log('val_loss', loss, batch_size=self.batch_size)
 
-        predictions = torch.argmax(x, dim=1, keepdim=True)
-        self.val_accuracy(predictions.reshape(-1, 1), Y.reshape(-1, 1))
-        self.log("val_acc", self.val_accuracy, batch_size=self.batch_size) 
+#         predictions = torch.argmax(x, dim=1, keepdim=True)
+#         self.val_accuracy(predictions.reshape(-1, 1), Y.reshape(-1, 1))
+#         self.log("val_acc", self.val_accuracy, batch_size=self.batch_size) 
 
 
-    def test_step(self,test_batch,batch_idx):
+#     def test_step(self,test_batch,batch_idx):
         
-        V, F, VF, FF, Y = test_batch
+#         V, F, VF, FF, Y = test_batch
 
-        Y = Y.squeeze(dim=1)
+#         Y = Y.squeeze(dim=1)
 
-        x = self((V, F, VF, FF)) 
+#         x = self((V, F, VF, FF)) 
 
-        loss = self.loss(x,Y) 
+#         loss = self.loss(x,Y) 
 
-        self.log('test_loss', loss, batch_size=self.batch_size)
+#         self.log('test_loss', loss, batch_size=self.batch_size)
 
-        predictions = torch.argmax(x, dim=1, keepdim=True)
+#         predictions = torch.argmax(x, dim=1, keepdim=True)
 
-        output = [predictions,Y]
+#         output = [predictions,Y]
 
-        return output
+#         return output
 
-    def test_epoch_end(self,input_test):
-        y_pred = []
-        y_true = []
-        for ele in input_test:
-            y_pred += ele[0].tolist()
-            y_true += ele[1].tolist()
-        target_names = ['V06','V12']
+#     def test_epoch_end(self,input_test):
+#         y_pred = []
+#         y_true = []
+#         for ele in input_test:
+#             y_pred += ele[0].tolist()
+#             y_true += ele[1].tolist()
+#         target_names = ['V06','V12']
 
-        cf_matrix = confusion_matrix(y_true, y_pred)
-        cf_matrix = cf_matrix/np.max(cf_matrix)
+#         cf_matrix = confusion_matrix(y_true, y_pred)
+#         cf_matrix = cf_matrix/np.max(cf_matrix)
 
-        fig = px.imshow(cf_matrix,labels=dict(x="Predicted condition", y="Actual condition"),x=target_names,y=target_names)
-        fig.update_xaxes(side="top")
-        fig.write_image("images/confusion_matrix.png")
-        fig.show()
+#         fig = px.imshow(cf_matrix,labels=dict(x="Predicted condition", y="Actual condition"),x=target_names,y=target_names)
+#         fig.update_xaxes(side="top")
+#         fig.write_image("images/confusion_matrix.png")
+#         fig.show()
 
-        print(y_pred)
-        print(y_true)
-        print(classification_report(y_true, y_pred, target_names=target_names))
+#         print(y_pred)
+#         print(y_true)
+#         print(classification_report(y_true, y_pred, target_names=target_names))
 
-    def GetView(self,meshes,index):
+#     def GetView(self,meshes,index):
 
-        phong_renderer = self.phong_renderer.to(self.device)
-        R = self.R[index][None].to(self.device)
-        T = self.T[index][None].to(self.device)
+#         phong_renderer = self.phong_renderer.to(self.device)
+#         R = self.R[index][None].to(self.device)
+#         T = self.T[index][None].to(self.device)
 
-        _, fragments = phong_renderer(meshes.clone(),R=R,T=T)
-        pix_to_face = fragments.pix_to_face   
-        pix_to_face = pix_to_face.permute(0,3,1,2)
-        return pix_to_face
+#         _, fragments = phong_renderer(meshes.clone(),R=R,T=T)
+#         pix_to_face = fragments.pix_to_face   
+#         pix_to_face = pix_to_face.permute(0,3,1,2)
+#         return pix_to_face

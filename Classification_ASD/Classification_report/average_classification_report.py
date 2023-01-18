@@ -18,7 +18,7 @@ from torchvision.models import resnet50
 import monai
 import pandas as pd
 
-from net_classification_ASD import BrainNet,BrainIcoNet, BrainIcoAttentionNet
+from net_classification_ASD import BrainNet,BrainIcoNet
 from data_classification_ASD import BrainIBISDataModuleforClassificationASD
 
 from transformation import RandomRotationTransform, GaussianNoisePointTransform, NormalizePointTransform, CenterSphereTransform
@@ -93,7 +93,7 @@ for i in range(len(list_name_model)):
 
     path_test = list_fold[i] #+
     name_model = list_name_model[i]
-    print('Nummmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmmber : ', i)
+    print('i : ', i)
     print('Path : ',path_test,'   Name model : ',name_model)
 
     path_model = way + path_test + '/' + name_model
@@ -133,5 +133,3 @@ for i in range(len(list_name_model)):
 target_names = ['no ASD','ASD']
 cr = classification_report(y_true_total, y_pred_total, target_names=target_names)
 print(cr)
-
-print(2)

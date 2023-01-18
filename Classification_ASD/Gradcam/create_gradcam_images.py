@@ -1,6 +1,7 @@
 #CUDA_VISIBLE_DEVICES=0
 
 import sys
+sys.path.insert(0, '/NIRAL/work/ugor/source/brain_classification/Classification_ASD')
 sys.path.insert(0, '/NIRAL/work/ugor/source/brain_classification/Classification_ASD/Checkpoint')
 sys.path.insert(0, '/NIRAL/work/ugor/source/brain_classification/Librairies')
 
@@ -17,7 +18,7 @@ from torchvision.models import resnet50
 import monai
 import pandas as pd
 
-from net_classification_ASD import BrainNet,BrainIcoNet, BrainIcoAttentionNet
+from net_classification_ASD import BrainNet,BrainIcoNet
 from data_classification_ASD import BrainIBISDataModuleforClassificationASD
 
 from transformation import RandomRotationTransform, GaussianNoisePointTransform, NormalizePointTransform, CenterSphereTransform
@@ -376,6 +377,7 @@ for i in range(len(list_num_fold)):
     for j in range(nbr_brain):
         hemisphere = brain_data.val_dataset.df.loc[j]['Hemisphere']
         if hemisphere == 'right':
+            print("j : ",j)
             V, F, VF, FF, Y = brain_data.val_dataset.__getitem__(j)
             #if Y.item() == 1:
             V = V.unsqueeze(dim=0).to(device)
@@ -387,41 +389,10 @@ for i in range(len(list_num_fold)):
 
             l_gray = []
 
-
-            # input_tensor_cam = x.squeeze(dim=0)
-            # model_cam[1].keep_neighbors_for_gradcam(model.TimeDistributed.module(input_tensor_cam))
-            #print(x.shape)
-            
-            #####For each images, I apply gradcam
-            
-            # for i in range(12):
-            #     input_tensor_cami = input_tensor_cam[i].unsqueeze(dim=0)
-            #     #print(input_tensor_cami.shape)
-            #     # model_cam[1].keep_position_for_gradcam(i)
-            #     grayscale_cam = cam(input_tensor=input_tensor_cam, targets=targets)
-
-            #     grayscale_cami = grayscale_cam[0,:]
-            #     l_gray.append(torch.tensor(grayscale_cami).unsqueeze(dim=0))
-
             input_tensor_cam = x
             grayscale_cam = torch.Tensor(cam(input_tensor=input_tensor_cam, targets=targets))
 
-            #print(grayscale_cam.shape)
-
-            #grayscale_cami = grayscale_cam[0,:]
-            #l_gray.append(torch.tensor(grayscale_cami).unsqueeze(dim=0))
-
-            # t_gray = torch.cat(l_gray,dim=0)
-            # t_gray = t_gray.unsqueeze(dim=0)
-            print(j)
-
             l_final.append(grayscale_cam.unsqueeze(dim=1))
-
-    #cv2.imshow("Image ",visualization)
-    #t_all_gray = torch.cat(l_all_gray,dim=0)
-    #t = torch.mean(t_all_gray,dim=0)
-    #print(t_all_gray.shape)
-    #l_final.append(t_all_gray)
 
 t_final = torch.cat(l_final,dim=1)
 t = torch.mean(t_final,dim=1)
@@ -436,7 +407,7 @@ for i in range(12):
     visualization = show_cam_on_image(image, t[i], use_rgb=True)
 
     title  = 'GradCam/Individual_image/Right812857_V'+str(i)+'.png'
-    cv2.imwrite(title, visualization)
+    #cv2.imwrite(title, visualization)
 
 
 

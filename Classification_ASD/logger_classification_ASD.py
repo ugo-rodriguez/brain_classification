@@ -29,12 +29,10 @@ class BrainNetImageLogger(Callback):
                 grid_images = torchvision.utils.make_grid(images[0, 0:self.num_images, 0:self.num_features, :, :])
                 trainer.logger.experiment.add_image('Image features', grid_images, pl_module.global_step)
 
-                # images_noiseM = images +  torch.normal(self.mean, self.std,size=images.shape, device=images.device)*(images!=0)
                 images_noiseM = pl_module.noise(images)
 
                 grid_images_noiseM = torchvision.utils.make_grid(images_noiseM[0, 0:self.num_images, 0:self.num_features, :, :])
                 trainer.logger.experiment.add_image('Image + noise M ', grid_images_noiseM, pl_module.global_step)
-
 
                 # grid_eacsf = torchvision.utils.make_grid(images[0, 0:self.num_images, 0:1, :, :])
                 # trainer.logger.experiment.add_image('Image eacsf', grid_eacsf, pl_module.global_step)

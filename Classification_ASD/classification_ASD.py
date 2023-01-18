@@ -14,7 +14,7 @@ import monai
 import nibabel as nib
 
 
-from net_classification_ASD import BrainNet,BrainIcoNet, BrainIcoAttentionNet
+from net_classification_ASD import BrainNet,BrainIcoNet
 from data_classification_ASD import BrainIBISDataModuleforClassificationASD
 from logger_classification_ASD import BrainNetImageLogger
 
@@ -55,6 +55,7 @@ def main():
     list_nb_verts_ico = [12,42]
     nb_verts_ico = list_nb_verts_ico[ico_lvl-1]
 
+    ###Transformation
     list_train_transform = [] 
     list_train_transform.append(CenterSphereTransform())
     list_train_transform.append(NormalizePointTransform())
@@ -89,14 +90,14 @@ def main():
 
     image_logger = BrainNetImageLogger(num_features = nbr_features,num_images = nb_verts_ico,mean = 0,std=noise_lvl)
 
-    #trainer = Trainer(max_epochs=num_epochs,callbacks=[early_stop_callback])
+
+    ###Trainer
     trainer = Trainer(log_every_n_steps=20,reload_dataloaders_every_n_epochs=True,logger=logger,max_epochs=num_epochs,callbacks=[early_stop_callback,checkpoint_callback,image_logger],accelerator="gpu") #,profiler="advanced"
+    #trainer = Trainer(max_epochs=num_epochs,callbacks=[early_stop_callback])
 
     trainer.fit(model,datamodule=brain_data)
 
     trainer.test(model, datamodule=brain_data)
-
-    torch.save(model.state_dict(), 'ModeleBrainClassificationIcoConvAvgPooling.pth')
 
 if __name__ == '__main__':
     main()
