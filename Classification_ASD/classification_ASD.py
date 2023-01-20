@@ -25,7 +25,7 @@ print("Import // done")
 
 def main():
 
-    name = "Test"
+    name = "GenderIcoF3"
     print('name to save checkpoints : ',name)
 
     batch_size = 10 #8-20
@@ -35,7 +35,7 @@ def main():
     image_size = 224
     noise_lvl = 0.01
     dropout_lvl = 0.2
-    num_epochs = 1
+    num_epochs = 150
     ico_lvl = 1
     radius = 2.0
     lr = 1e-5
@@ -47,9 +47,9 @@ def main():
     patience_early_stopping = 40
 
     path_data = "/MEDUSA_STOR/ugor/IBIS_sa_eacsf_thickness"
-    train_path = "/NIRAL/work/ugor/source/brain_classification/Classification_ASD/Data/dataASDHR-V06_12fold4_train.csv"
-    val_path = "/NIRAL/work/ugor/source/brain_classification/Classification_ASD/Data/dataASDHR-V06_12fold4_val.csv"
-    test_path = "/NIRAL/work/ugor/source/brain_classification/Classification_ASD/Data/dataASDHR-V06_12fold4_test.csv"
+    train_path = "/NIRAL/work/ugor/source/brain_classification/Classification_ASD/Data/dataASDdemographics-V06_12fold3_train.csv"
+    val_path = "/NIRAL/work/ugor/source/brain_classification/Classification_ASD/Data/dataASDdemographics-V06_12fold3_val.csv"
+    test_path = "/NIRAL/work/ugor/source/brain_classification/Classification_ASD/Data/dataASDdemographics-V06_12fold3_test.csv"
     path_ico = '/MEDUSA_STOR/ugor/Sphere_Template/sphere_f327680_v163842.vtk'
 
     list_nb_verts_ico = [12,42]
@@ -82,9 +82,10 @@ def main():
 
     brain_data = BrainIBISDataModuleforClassificationASD(batch_size,path_data,train_path,val_path,test_path,path_ico,train_transform = train_transform,val_and_test_transform =val_and_test_transform,num_workers=num_workers)
     nbr_features = brain_data.get_features()
+    nbr_information = brain_data.get_nbr_information()
     weights = brain_data.get_weigths()
 
-    model = BrainIcoNet(nbr_features,dropout_lvl,image_size,noise_lvl,ico_lvl,batch_size, weights,radius=radius,lr=lr,name=name)
+    model = BrainIcoNet(nbr_features,nbr_information,dropout_lvl,image_size,noise_lvl,ico_lvl,batch_size, weights,radius=radius,lr=lr,name=name)
 
     early_stop_callback = EarlyStopping(monitor="val_loss", min_delta=min_delta_early_stopping, patience=patience_early_stopping, verbose=True, mode="min")
 

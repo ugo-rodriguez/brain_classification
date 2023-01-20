@@ -15,7 +15,7 @@ class BrainNetImageLogger(Callback):
 
         if batch_idx % self.log_steps == 0:
 
-            V, F, VF, FF, Y = batch
+            V, F, VF, FF, information, Y = batch
 
             V = V.to(pl_module.device,non_blocking=True)
             F = F.to(pl_module.device,non_blocking=True)

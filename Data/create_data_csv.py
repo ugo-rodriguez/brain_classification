@@ -139,4 +139,6 @@ save_name_06_12 = 'dataASDdemographics-V06_12.csv'
 save_path_06_12 = '/work/ugor/source/brain_classification/Classification_ASD/Data/'+save_name_06_12
 #dataASDHR_V06_12.to_csv(save_path_06_12,index=False)
 
+
+
 print(2)

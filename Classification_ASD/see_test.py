@@ -52,7 +52,7 @@ image_size = 224
 noise_lvl = 0.03
 dropout_lvl = 0.2
 num_epochs = 100
-ico_lvl = 2
+ico_lvl = 1
 radius=2
 lr = 1e-5
 
@@ -63,12 +63,12 @@ min_delta_early_stopping = 0.00
 patience_early_stopping = 30
 
 path_data = "/MEDUSA_STOR/ugor/IBIS_sa_eacsf_thickness"
-train_path = "/NIRAL/work/ugor/source/brain_classification/Classification_ASD/Data/dataASDHR-V06_12fold3_train.csv"
-val_path = "/NIRAL/work/ugor/source/brain_classification/Classification_ASD/Data/dataASDHR-V06_12fold3_val.csv"
-test_path = "/NIRAL/work/ugor/source/brain_classification/Classification_ASD/Data/dataASDHR-V06_12fold3_test.csv"
+train_path = "/NIRAL/work/ugor/source/brain_classification/Classification_ASD/Data/dataASDdemographics-V06_12fold1_train.csv"
+val_path = "/NIRAL/work/ugor/source/brain_classification/Classification_ASD/Data/dataASDdemographics-V06_12fold1_val.csv"
+test_path = "/NIRAL/work/ugor/source/brain_classification/Classification_ASD/Data/dataASDdemographics-V06_12fold1_test.csv"
 path_ico = '/MEDUSA_STOR/ugor/Sphere_Template/sphere_f327680_v163842.vtk'
 
-path_test = '/Ico42F3' 
+path_test = '/GenderIcoF1' 
 way = "/work/ugor/source/brain_classification/Classification_ASD/Checkpoint"
 path_checkpoint = way + path_test
 
@@ -77,6 +77,10 @@ list_name_model = os.listdir(path_checkpoint)
 
 #list_fold = ['/F0','/F1','/F2-2','/F3-2','/F4'] #+
 #list_name_model = ['epoch=38-val_loss=0.65.ckpt','epoch=118-val_loss=0.54.ckpt','epoch=55-val_loss=0.68.ckpt','epoch=32-val_loss=0.74.ckpt','epoch=39-val_loss=0.76.ckpt'] #+
+
+#list_fold = ['/IcoF0','/IcoF1','/IcoF2','/IcoF3','/IcoF4'] #+
+#list_name_model = ['epoch=47-val_loss=0.62.ckpt','epoch=81-val_loss=0.55.ckpt','epoch=57-val_loss=0.63.ckpt','epoch=5-val_loss=0.68.ckpt','epoch=47-val_loss=0.71.ckpt']#+
+
 
 
 for i in range(len(list_name_model)):
@@ -109,9 +113,10 @@ for i in range(len(list_name_model)):
     brain_data = BrainIBISDataModuleforClassificationASD(batch_size,path_data,train_path,val_path,test_path,path_ico,train_transform = train_transform,val_and_test_transform =val_and_test_transform, num_workers=num_workers)
 
     nbr_features = brain_data.get_features()
+    nbr_information = brain_data.get_nbr_information()
     weights = brain_data.get_weigths()
 
-    model = BrainIcoNet(nbr_features,dropout_lvl,image_size,noise_lvl,ico_lvl,batch_size, weights,radius=radius,lr=lr)
+    model = BrainIcoNet(nbr_features,nbr_information,dropout_lvl,image_size,noise_lvl,ico_lvl,batch_size, weights,radius=radius,lr=lr)
     checkpoint = torch.load(path_model)
     model.load_state_dict(checkpoint['state_dict'])
 

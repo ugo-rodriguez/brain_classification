@@ -20,7 +20,7 @@ from utils import ReadSurf, PolyDataToTensors
 import pandas as pd
 
 class BrainIBISDatasetforClassificationASD(Dataset):
-    def __init__(self,df,path_data,path_ico,transform = None,version=None, column_subject_id='Subject_ID', column_age='Age',column_hermisphere = 'Hemisphere',column_ASD = 'ASD_administered'):
+    def __init__(self,df,path_data,path_ico,transform = None,version=None, column_subject_id='Subject_ID', column_age='Age',column_hemisphere = 'Hemisphere',column_ASD = 'ASD_administered',column_gender = 'Gender',column_MRI_Age = 'MRI_Age'):
         self.df = df
         self.path_data = path_data
         self.path_ico = path_ico
@@ -28,8 +28,10 @@ class BrainIBISDatasetforClassificationASD(Dataset):
         self.version = version
         self.column_subject_id =column_subject_id
         self.column_age = column_age
-        self.column_hermisphere = column_hermisphere
+        self.column_hemisphere = column_hemisphere
         self.column_ASD = column_ASD
+        self.column_gender = column_gender
+        self.column_MRI_Age = column_MRI_Age
 
         self.change_rotation = False
         for i in range(len(self.transform)):
@@ -48,11 +50,11 @@ class BrainIBISDatasetforClassificationASD(Dataset):
         idx_version = int(row[self.column_age])
         version = l_version[idx_version]
 
-        hemisphere = row[self.column_hermisphere]
+        hemisphere = row[self.column_hemisphere]
 
-        verts, faces,vertex_features,face_features, Y = self.getitem_per_hemisphere_age(version,hemisphere, idx)
+        verts, faces, vertex_features, face_features, information, Y = self.getitem_per_hemisphere_age(version,hemisphere, idx)
 
-        return  verts, faces,vertex_features,face_features, Y
+        return  verts,faces,vertex_features,face_features,information,Y
     
     def getitem_per_hemisphere_age(self,age,hemisphere,idx):
         #Load Data
@@ -62,6 +64,13 @@ class BrainIBISDatasetforClassificationASD(Dataset):
         version = age
 
         idx_ASD = int(row[self.column_ASD])
+
+        list_gender = ['Male','Female']
+        gender = float(list_gender.index(row[self.column_gender]))
+
+        MRI_Age = float(row[self.column_MRI_Age])
+
+        information = torch.tensor([gender])
 
         l_features = []
 
@@ -103,7 +112,7 @@ class BrainIBISDatasetforClassificationASD(Dataset):
         
         face_features = torch.take(vertex_features,faces_pid0_offset)
 
-        return verts, faces,vertex_features,face_features, Y
+        return verts, faces,vertex_features,face_features, information, Y
 
 class BrainIBISDataModuleforClassificationASD(pl.LightningDataModule):
     def __init__(self,batch_size,path_data,train_path,val_path,test_path,path_ico,train_transform=None,val_and_test_transform=None, num_workers=6, pin_memory=False, persistent_workers=False):
@@ -119,8 +128,6 @@ class BrainIBISDataModuleforClassificationASD(pl.LightningDataModule):
         self.num_workers = num_workers
         self.pin_memory = pin_memory
         self.persistent_workers=persistent_workers
-        
-        self.nbr_features = 3
 
         self.weights = []
 
@@ -141,6 +148,8 @@ class BrainIBISDataModuleforClassificationASD(pl.LightningDataModule):
         class_weights_test = torch.tensor(class_weight.compute_class_weight('balanced',classes=labels,y=y_test)).to(torch.float32)
         self.weights.append(class_weights_test) 
 
+        self.setup()
+
 
     def setup(self,stage=None):
 
@@ -148,6 +157,10 @@ class BrainIBISDataModuleforClassificationASD(pl.LightningDataModule):
         self.train_dataset = BrainIBISDatasetforClassificationASD(self.df_train,self.path_data,self.path_ico,self.train_transform)
         self.val_dataset = BrainIBISDatasetforClassificationASD(self.df_val,self.path_data,self.path_ico,self.val_and_test_transform)
         self.test_dataset = BrainIBISDatasetforClassificationASD(self.df_test,self.path_data,self.path_ico,self.val_and_test_transform)
+
+        V, F, VF, FF, information, Y = self.train_dataset.__getitem__(0)
+        self.nbr_features = V.shape[1]
+        self.nbr_information = information.shape[0]
 
     def train_dataloader(self):
         df_healthy = self.df_train.query('ASD_administered == 0')
@@ -169,3 +182,6 @@ class BrainIBISDataModuleforClassificationASD(pl.LightningDataModule):
 
     def get_weigths(self):
         return self.weights
+
+    def get_nbr_information(self):
+        return self.nbr_information

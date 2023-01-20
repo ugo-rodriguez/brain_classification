@@ -17,7 +17,7 @@ import torch
 
 
 ###Display 2 : To get an average image for each views
-name = "812857"
+name = "RightASDGPImage"
 list_img = [cv2.imread("Classification_ASD/Gradcam/Individual_image/"+name+"_V"+str(i)+".png",cv2.IMREAD_COLOR) for i in range(12)]
 #list_img = [cv2.imread("Individual_image/"+name+"_V"+str(i)+".png",cv2.IMREAD_COLOR) for i in range(12)]
 image_top = cv2.hconcat(list_img[:6])

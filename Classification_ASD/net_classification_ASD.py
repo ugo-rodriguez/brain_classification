@@ -219,12 +219,13 @@ class IcosahedronConv2d(nn.Module):
 
 
 class BrainNet(pl.LightningModule):
-    def __init__(self,nbr_features,dropout_lvl,image_size,noise_lvl,ico_lvl,batch_size,weights, radius=1.35, lr=1e-4,name=''):
+    def __init__(self,nbr_features,nbr_information,dropout_lvl,image_size,noise_lvl,ico_lvl,batch_size,weights, radius=1.35, lr=1e-4,name=''):
         super().__init__()
 
         self.save_hyperparameters()
 
         self.nbr_features = nbr_features
+        self.nbr_information = nbr_information        
         self.dropout_lvl = dropout_lvl
         self.image_size = image_size
         self.noise_lvl = noise_lvl 
@@ -266,9 +267,9 @@ class BrainNet(pl.LightningModule):
 
         output_size = self.TimeDistributed.module.inplanes
 
-        self.WV = nn.Linear(output_size, 256) 
+        self.WV = nn.Linear(output_size+self.nbr_information, 256) 
 
-        self.Attention = SelfAttention(output_size, 128) 
+        self.Attention = SelfAttention(output_size+self.nbr_information, 128) 
         self.Classification = nn.Linear(256, 2)
 
         self.Sigmoid = nn.Sigmoid()
@@ -306,17 +307,21 @@ class BrainNet(pl.LightningModule):
         )
  
     def forward(self, x):
-        V, F, VF, FF = x
+        V, F, VF, FF, information = x
 
         V = V.to(self.device,non_blocking=True)
         F = F.to(self.device,non_blocking=True)
         VF = VF.to(self.device,non_blocking=True)
-        FF = FF.to(self.device,non_blocking=True)    
+        FF = FF.to(self.device,non_blocking=True)
+        information = information.to(self.device,non_blocking=True)
+
+        information = torch.cat([information.unsqueeze(dim=1) for  i in range(self.nbr_cam)],dim=1)
 
         x, PF = self.render(V,F,VF,FF)
 
         x = self.noise(x)
         query = self.TimeDistributed(x)
+        query = torch.cat([query,information],dim=2)
         values = self.WV(query)
         x, w = self.Attention(query, values)
         x = self.drop(x)
@@ -359,11 +364,11 @@ class BrainNet(pl.LightningModule):
 
     def training_step(self, train_batch, batch_idx):
 
-        V, F, VF, FF,Y = train_batch
+        V, F, VF, FF, information, Y = train_batch
 
         Y = Y.squeeze(dim=1)
 
-        x = self((V, F, VF, FF)) 
+        x = self((V, F, VF, FF, information)) 
 
         loss = self.loss_train(x,Y) 
 
@@ -377,11 +382,11 @@ class BrainNet(pl.LightningModule):
 
     def validation_step(self,val_batch,batch_idx):
 
-        V, F, VF, FF,Y = val_batch
+        V, F, VF, FF, information, Y = val_batch
 
         Y = Y.squeeze(dim=1)
 
-        x = self((V, F, VF, FF))
+        x = self((V, F, VF, FF, information))
 
         loss = self.loss_val(x,Y) 
 
@@ -394,11 +399,11 @@ class BrainNet(pl.LightningModule):
 
     def test_step(self,test_batch,batch_idx):
 
-        V, F, VF, FF,Y = test_batch
+        V, F, VF, FF, information, Y = test_batch
 
         Y = Y.squeeze(dim=1)
 
-        x = self((V, F, VF, FF))
+        x = self((V, F, VF, FF, information))
 
         loss = self.loss_test(x,Y) 
 
@@ -445,13 +450,14 @@ class BrainNet(pl.LightningModule):
 
 
 class BrainIcoNet(pl.LightningModule):
-    def __init__(self,nbr_features,dropout_lvl,image_size,noise_lvl,ico_lvl,batch_size,weights, radius=2.0, lr=1e-4,name=''):
+    def __init__(self,nbr_features,nbr_information,dropout_lvl,image_size,noise_lvl,ico_lvl,batch_size,weights, radius=2.0, lr=1e-4,name=''):
         print('Inside init function')
         super().__init__()
 
         self.save_hyperparameters()
 
         self.nbr_features = nbr_features
+        self.nbr_information = nbr_information
         self.dropout_lvl = dropout_lvl
         self.image_size = image_size
         self.noise_lvl = noise_lvl 
@@ -492,7 +498,9 @@ class BrainIcoNet(pl.LightningModule):
         self.noise = GaussianNoise(mean=0.0, std=noise_lvl)
         self.TimeDistributed = TimeDistributed(efficient_net)
 
-        conv2d = nn.Conv2d(512, 256, kernel_size=(3,3),stride=2,padding=0) 
+        output_size = self.TimeDistributed.module.inplanes
+
+        conv2d = nn.Conv2d(output_size+self.nbr_information, 256, kernel_size=(3,3),stride=2,padding=0) 
         self.IcosahedronConv2d = IcosahedronConv2d(conv2d,self.ico_sphere_verts,self.ico_sphere_edges)
 
         self.pooling = AvgPoolImages(nbr_images=self.nbr_cam)
@@ -532,17 +540,22 @@ class BrainIcoNet(pl.LightningModule):
  
     def forward(self, x):
 
-        V, F, VF, FF = x
+        V, F, VF, FF, information = x
 
         V = V.to(self.device,non_blocking=True)
         F = F.to(self.device,non_blocking=True)
         VF = VF.to(self.device,non_blocking=True)
         FF = FF.to(self.device,non_blocking=True)
+        information = information.to(self.device,non_blocking=True)
+
+        information = torch.cat([information.unsqueeze(dim=1) for  i in range(self.nbr_cam)],dim=1)
 
         x, PF = self.render(V,F,VF,FF)
 
         x = self.noise(x)
         x = self.TimeDistributed(x)
+ 
+        x = torch.cat([x,information],dim=2)
 
         x = self.IcosahedronConv2d(x)
 
@@ -587,11 +600,11 @@ class BrainIcoNet(pl.LightningModule):
 
     def training_step(self, train_batch, batch_idx):
 
-        V, F, VF, FF, Y = train_batch
+        V, F, VF, FF, information, Y = train_batch
 
         Y = Y.squeeze(dim=1)
 
-        x = self((V, F, VF, FF)) 
+        x = self((V, F, VF, FF, information)) 
 
         loss = self.loss_train(x,Y) 
 
@@ -605,11 +618,11 @@ class BrainIcoNet(pl.LightningModule):
 
     def validation_step(self,val_batch,batch_idx):
         
-        V, F, VF, FF, Y = val_batch
+        V, F, VF, FF, information, Y = val_batch
 
         Y = Y.squeeze(dim=1)
 
-        x = self((V, F, VF, FF)) 
+        x = self((V, F, VF, FF, information)) 
 
         loss = self.loss_val(x,Y) 
 
@@ -622,11 +635,11 @@ class BrainIcoNet(pl.LightningModule):
 
     def test_step(self,test_batch,batch_idx):
         
-        V, F, VF, FF, Y = test_batch
+        V, F, VF, FF, information, Y = test_batch
 
         Y = Y.squeeze(dim=1)
 
-        x = self((V, F, VF, FF)) 
+        x = self((V, F, VF, FF, information)) 
 
         loss = self.loss_test(x,Y) 
 
@@ -645,6 +658,12 @@ class BrainIcoNet(pl.LightningModule):
             y_pred += ele[0].tolist()
             y_true += ele[1].tolist()
         target_names = ['no ASD','ASD']
+
+        indexASD_good_pred = []
+        for i in range(len(y_pred)):
+            if (y_pred[i][0] == y_true[i]) and (y_true[i] == 1):
+                indexASD_good_pred.append(i)
+        print(indexASD_good_pred)
 
         self.y_pred =y_pred
         self.y_true =y_true

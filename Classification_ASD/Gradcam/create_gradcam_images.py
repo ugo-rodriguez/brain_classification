@@ -338,19 +338,15 @@ l_final = []
 list_fold = ['IcoF0','IcoF1','IcoF2','IcoF3','IcoF4']
 list_name_fold = ['epoch=47-val_loss=0.62.ckpt','epoch=81-val_loss=0.55.ckpt','epoch=57-val_loss=0.63.ckpt','epoch=5-val_loss=0.68.ckpt','epoch=47-val_loss=0.71.ckpt']
 
-list_num_fold = [2]
-list_fold = ['IcoF2']
-list_name_fold = ['epoch=57-val_loss=0.63.ckpt']
 
-
-for i in range(len(list_num_fold)):
-    n_fold = list_num_fold[i]
-    train_path = "/NIRAL/work/ugor/source/brain_classification/Classification_ASD/Data/dataASDHR-V06_12_812857.csv" #GP
-    val_path = "/NIRAL/work/ugor/source/brain_classification/Classification_ASD/Data/dataASDHR-V06_12_812857.csv" #GP
-    test_path = "/NIRAL/work/ugor/source/brain_classification/Classification_ASD/Data/dataASDHR-V06_12_812857.csv" #GP
+for i in range(len(list_fold)):
+    train_path = "/NIRAL/work/ugor/source/brain_classification/Classification_ASD/Data/dataASDHR-V06_12_icogoodpredfold"+str(i)+".csv" #GP
+    val_path = "/NIRAL/work/ugor/source/brain_classification/Classification_ASD/Data/dataASDHR-V06_12_icogoodpredfold"+str(i)+".csv" #GP
+    test_path = "/NIRAL/work/ugor/source/brain_classification/Classification_ASD/Data/dataASDHR-V06_12_icogoodpredfold"+str(i)+".csv" #GP
 
     brain_data = BrainIBISDataModuleforClassificationASD(batch_size,path_data,train_path,val_path,test_path,path_ico,train_transform = train_transform,val_and_test_transform =val_and_test_transform,num_workers=num_workers) #GP
     nbr_features = brain_data.get_features()#GP
+    nbr_information = brain_data.get_nbr_information()
     brain_data.setup() #GP
     nbr_brain = brain_data.val_dataset.__len__()#GP
 
@@ -358,7 +354,7 @@ for i in range(len(list_num_fold)):
     name = '/'+name_fold+'/'+list_name_fold[i]
     path_model = "/NIRAL/work/ugor/source/brain_classification/Classification_ASD/Checkpoint"+name
 
-    model = BrainIcoNet(nbr_features,dropout_lvl,image_size,noise_lvl,ico_lvl,batch_size, weights,radius=radius,lr=lr,name=name)
+    model = BrainIcoNet(nbr_features,nbr_information,dropout_lvl,image_size,noise_lvl,ico_lvl,batch_size, weights,radius=radius,lr=lr,name=name)
     checkpoint = torch.load(path_model, map_location=torch.device('cpu'))
     model.load_state_dict(checkpoint['state_dict'])
     model = model.to(device)
@@ -378,7 +374,7 @@ for i in range(len(list_num_fold)):
         hemisphere = brain_data.val_dataset.df.loc[j]['Hemisphere']
         if hemisphere == 'right':
             print("j : ",j)
-            V, F, VF, FF, Y = brain_data.val_dataset.__getitem__(j)
+            V, F, VF, FF, information, Y = brain_data.val_dataset.__getitem__(j)
             #if Y.item() == 1:
             V = V.unsqueeze(dim=0).to(device)
             F = F.unsqueeze(dim=0).to(device)
@@ -396,7 +392,7 @@ for i in range(len(list_num_fold)):
 
 t_final = torch.cat(l_final,dim=1)
 t = torch.mean(t_final,dim=1)
-#torch.save(t,'Right812857gradcam.pt')
+torch.save(t,'/NIRAL/work/ugor/source/brain_classification/Classification_ASD/Saved_tensor/IcoRightASDGPgradcam2.pt')
 
 for i in range(12):
     print(input_tensor_cam.shape)
@@ -406,8 +402,8 @@ for i in range(12):
     image = image/np.max(image)
     visualization = show_cam_on_image(image, t[i], use_rgb=True)
 
-    title  = 'GradCam/Individual_image/Right812857_V'+str(i)+'.png'
-    #cv2.imwrite(title, visualization)
+    title  = 'Individual_image/RightASDGPImage_V'+str(i)+'.png'
+    cv2.imwrite(title, visualization)
 
 
 
